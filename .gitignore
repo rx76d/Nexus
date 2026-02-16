@@ -1,0 +1,7 @@
+ico_old.ico
+nexus_personal.py
+/My_Digital_Nexus
+dist/
+build/
+__pycache__/
+*.spec
