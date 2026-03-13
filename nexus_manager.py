@@ -45,7 +45,7 @@ class SecurityManager:
 
     def encrypt(self, text):
         if not text:
-            return ""
+            return ""            
         try:
             if HAS_CRYPTO and self.cipher:
                 return self.cipher.encrypt(text.encode()).decode()
@@ -56,7 +56,7 @@ class SecurityManager:
 
     def decrypt(self, text):
         if not text:
-            return ""
+            return ""           
         try:
             if HAS_CRYPTO and self.cipher:
                 return self.cipher.decrypt(text.encode()).decode()
@@ -94,6 +94,7 @@ class Database:
                     value TEXT
                 )
             """)
+            
             self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS identities (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -102,6 +103,7 @@ class Database:
                     description TEXT
                 )
             """)
+            
             self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS emails (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -113,6 +115,7 @@ class Database:
                     FOREIGN KEY(identity_id) REFERENCES identities(id)
                 )
             """)
+            
             self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS accounts (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -131,7 +134,7 @@ class Database:
             
             self.cursor.execute("SELECT count(*) FROM identities")
             if self.cursor.fetchone()[0] == 0:
-                defaults = [
+                defaults =[
                     ("Professional", "#2980b9", "Work"),
                     ("Private", "#d35400", "Personal"),
                     ("Enterprise", "#004080", "Admin"),
@@ -160,7 +163,10 @@ class Database:
         try:
             self.cursor.execute("SELECT value FROM config WHERE key=?", (key,))
             res = self.cursor.fetchone()
-            return res[0] if res else None
+            if res:
+                return res[0]
+            else:
+                return None
         except sqlite3.Error:
             return None
 
@@ -176,7 +182,7 @@ class Database:
             self.cursor.execute("SELECT id, name, color FROM identities")
             return self.cursor.fetchall()
         except sqlite3.Error:
-            return []
+            return[]
 
     def get_emails(self):
         try:
@@ -186,7 +192,7 @@ class Database:
             """)
             return self.cursor.fetchall()
         except sqlite3.Error:
-            return []
+            return[]
     
     def add_email(self, address, identity_id, status):
         try:
@@ -227,13 +233,16 @@ class Database:
                 JOIN identities i ON e.identity_id = i.id
                 WHERE 1=1
             """
-            params = []
+            params =[]
+            
             if search_query:
                 query += " AND (a.platform LIKE ? OR e.address LIKE ?)"
                 params.extend([f"%{search_query}%", f"%{search_query}%"])
+                
             if identity_filter != "All":
                 query += " AND i.name = ?"
                 params.append(identity_filter)
+                
             if browser_filter != "All":
                 query += " AND a.browser_pref LIKE ?"
                 params.append(f"%{browser_filter}%")
@@ -241,7 +250,7 @@ class Database:
             self.cursor.execute(query, params)
             return self.cursor.fetchall()
         except sqlite3.Error:
-            return []
+            return[]
 
     def delete_account(self, acc_id):
         try:
@@ -257,7 +266,7 @@ class Database:
 class NexusApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Nexus Manager v1.0")
+        self.root.title("Nexus Manager")
         
         try:
             self.work_dir = "My_Digital_Nexus"
@@ -277,15 +286,18 @@ class NexusApp:
         self.apply_theme() 
         
         self.check_session()
+ 
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         self.root.bind("<Button-1>", self.global_click_handler)
 
     def global_click_handler(self, event):
         try:
             widget = event.widget
+            
             if hasattr(self, 'vault_tree') and str(widget) != str(self.vault_tree):
                 if self.vault_tree.selection():
                     self.vault_tree.selection_remove(self.vault_tree.selection())
+                    
             if hasattr(self, 'email_tree') and str(widget) != str(self.email_tree):
                 if self.email_tree.selection():
                     self.email_tree.selection_remove(self.email_tree.selection())
@@ -294,19 +306,21 @@ class NexusApp:
 
     def setup_window_geometry(self):
         try:
+            self.root.geometry("1280x720")
+            
             screen_width = self.root.winfo_screenwidth()
             screen_height = self.root.winfo_screenheight()
-            width = 1280
-            height = 720
-            x = (screen_width - width) // 2
-            y = (screen_height - height) // 2
+            
+            width = min(1280, screen_width)
+            height = min(720, screen_height)
+            
+            x = max(0, (screen_width - width) // 2)
+            y = max(0, (screen_height - height) // 2)
             
             self.root.geometry(f"{width}x{height}+{x}+{y}")
             
             if sys.platform == "win32":
                 self.root.state('zoomed')
-            else:
-                self.root.attributes('-zoomed', True)
         except Exception:
             self.root.geometry("1000x600")
 
@@ -340,6 +354,7 @@ class NexusApp:
             self.style.configure("TCombobox", fieldbackground=field_bg, background=bg, foreground=fg)
             self.style.configure("TEntry", fieldbackground=field_bg, foreground=fg)
             self.style.configure("Header.TLabel", font=("Segoe UI", 12, "bold"), foreground=header_fg, background=bg)
+            
             self.style.configure("Treeview", background=field_bg, foreground=fg, fieldbackground=field_bg, font=("Segoe UI", 10), rowheight=30)
             self.style.configure("Treeview.Heading", font=("Segoe UI", 10, "bold"))
             self.style.map("Treeview", background=[("selected", select_bg)])
@@ -348,7 +363,7 @@ class NexusApp:
                 if isinstance(widget, tk.Toplevel):
                     widget.configure(bg=bg)
                     for child in widget.winfo_children():
-                        if isinstance(child, tk.Canvas): 
+                        if isinstance(child, tk.Canvas):
                             child.configure(bg=bg)
         except Exception:
             pass
@@ -356,7 +371,7 @@ class NexusApp:
     def on_close(self):
         try:
             self.db.set_config('last_exit', str(time.time()))
-        except:
+        except Exception:
             pass
         self.root.destroy()
 
@@ -394,60 +409,90 @@ class NexusApp:
     # ------------------------------------
     def show_first_time_setup(self):
         self.clear_screen()
+        
         frame = ttk.Frame(self.root)
         frame.pack(expand=True)
         
-        ttk.Label(frame, text="NEXUS SETUP", style="Header.TLabel").pack(pady=20)
+        title_label = ttk.Label(frame, text="NEXUS SETUP", style="Header.TLabel")
+        title_label.pack(pady=20)
         
-        def entry_row(txt):
-            ttk.Label(frame, text=txt).pack(anchor="w", pady=(5,0))
-            e = ttk.Entry(frame, width=35)
-            e.pack(pady=2)
-            return e
+        def create_labeled_entry(label_text):
+            label = ttk.Label(frame, text=label_text)
+            label.pack(anchor="w", pady=(5,0))
+
+            entry = ttk.Entry(frame, width=35)
+            entry.pack(pady=2)
+            
+            return entry
+
+        u_entry = create_labeled_entry("Username:")
         
-        u_entry = entry_row("Username:")
-        p_entry = entry_row("Password:")
+        p_entry = create_labeled_entry("Password:")
         p_entry.config(show="*")
         
-        ttk.Label(frame, text="Emergency Key:").pack(anchor="w", pady=(15,0))
-        ttk.Label(frame, text="⚠ CANNOT BE CHANGED LATER", font=("Segoe UI", 8), foreground="red").pack(anchor="w")
+        btc_label = ttk.Label(frame, text="Emergency Key:")
+        btc_label.pack(anchor="w", pady=(15,0))
+        
+        btc_warning = ttk.Label(frame, text="⚠ CANNOT BE CHANGED LATER", font=("Segoe UI", 8), foreground="red")
+        btc_warning.pack(anchor="w")
+
         btc_entry = ttk.Entry(frame, width=35)
         btc_entry.pack(pady=2)
         
-        ttk.Label(frame, text="Security Questions").pack(anchor="w", pady=(15,5))
+        sec_label = ttk.Label(frame, text="Security Questions")
+        sec_label.pack(anchor="w", pady=(15,5))
         
-        ttk.Label(frame, text="Q1:").pack(anchor="w")
+        q1_label = ttk.Label(frame, text="Q1:")
+        q1_label.pack(anchor="w")
+        
         q1_entry = ttk.Entry(frame, width=35)
-        q1_entry.insert(0, "What is you pet name?")
+        q1_entry.insert(0, "What is your pet name?")
         q1_entry.pack(pady=2)
-        a1_entry = entry_row("Answer 1:")
         
-        ttk.Label(frame, text="Q2:").pack(anchor="w", pady=(5,0))
+        a1_entry = create_labeled_entry("Answer 1:")
+        
+        q2_label = ttk.Label(frame, text="Q2:")
+        q2_label.pack(anchor="w", pady=(5,0))
+        
         q2_entry = ttk.Entry(frame, width=35)
-        q2_entry.insert(0, "In which city you were born?")
+        q2_entry.insert(0, "In which city were you born?")
         q2_entry.pack(pady=2)
-        a2_entry = entry_row("Answer 2:")
+        
+        a2_entry = create_labeled_entry("Answer 2:")
 
         def save_setup():
-            if not all([u_entry.get(), p_entry.get(), btc_entry.get(), q1_entry.get(), a1_entry.get(), q2_entry.get(), a2_entry.get()]):
-                messagebox.showerror("Error", "All fields mandatory.")
+            user = u_entry.get()
+            pw = p_entry.get()
+            btc = btc_entry.get()
+            q1 = q1_entry.get()
+            a1 = a1_entry.get()
+            q2 = q2_entry.get()
+            a2 = a2_entry.get()
+            
+            if not user or not pw or not btc or not q1 or not a1 or not q2 or not a2:
+                messagebox.showerror("Error", "All fields are mandatory.")
                 return
             
             try:
-                self.db.set_config('master_user', u_entry.get())
-                self.db.set_config('master_pass', self.security.hash_string(p_entry.get()))
-                self.db.set_config('btc_key', self.security.hash_string(btc_entry.get()))
-                self.db.set_config('sec_q1', q1_entry.get())
-                self.db.set_config('sec_a1', self.security.hash_string(a1_entry.get()))
-                self.db.set_config('sec_q2', q2_entry.get())
-                self.db.set_config('sec_a2', self.security.hash_string(a2_entry.get()))
+                self.db.set_config('master_user', user)
+                self.db.set_config('master_pass', self.security.hash_string(pw))
+                self.db.set_config('btc_key', self.security.hash_string(btc))
+                
+                self.db.set_config('sec_q1', q1)
+                self.db.set_config('sec_a1', self.security.hash_string(a1))
+                
+                self.db.set_config('sec_q2', q2)
+                self.db.set_config('sec_a2', self.security.hash_string(a2))
+                
                 self.db.set_config('setup_complete', '1')
+                
                 messagebox.showinfo("Success", "System Initialized.")
                 self.show_login_screen()
             except Exception as e:
                 messagebox.showerror("Error", f"Setup failed: {e}")
 
-        ttk.Button(frame, text="INITIALIZE SYSTEM", command=save_setup).pack(pady=20, fill="x")
+        save_btn = ttk.Button(frame, text="INITIALIZE SYSTEM", command=save_setup)
+        save_btn.pack(pady=20, fill="x")
 
     # ------------------------------------
     # LOGIN SCREEN
@@ -459,7 +504,10 @@ class NexusApp:
         
         if locked:
             lock_until = float(self.db.get_config('lock_until') or 0)
-            ttk.Label(frame, text="SECURITY LOCKDOWN", font=("Segoe UI", 24, "bold"), foreground="red").pack(pady=20)
+            
+            lock_label = ttk.Label(frame, text="SECURITY LOCKDOWN", font=("Segoe UI", 24, "bold"), foreground="red")
+            lock_label.pack(pady=20)
+            
             cd_lbl = ttk.Label(frame, text="", font=("Courier New", 14))
             cd_lbl.pack(pady=10)
             
@@ -471,21 +519,29 @@ class NexusApp:
                         self.db.set_config('failed_attempts', '0')
                         self.show_login_screen(locked=False)
                         return
-                    m, s = divmod(rem, 60)
-                    h, m = divmod(m, 60)
-                    cd_lbl.config(text=f"{h:02d}:{m:02d}:{s:02d}")
+                    
+                    minutes, seconds = divmod(rem, 60)
+                    hours, minutes = divmod(minutes, 60)
+                    
+                    cd_lbl.config(text=f"{hours:02d}:{minutes:02d}:{seconds:02d}")
                     self.root.after(1000, update_timer)
-                except:
+                except Exception:
                     pass
+                    
             update_timer()
             
-            ttk.Label(frame, text="BTC Bypass Key:").pack(anchor="w", pady=(20,5))
+            bypass_lbl = ttk.Label(frame, text="Emergency Bypass Key:")
+            bypass_lbl.pack(anchor="w", pady=(20,5))
+            
             e_bp = ttk.Entry(frame, width=40)
             e_bp.pack(pady=5)
             
             def bypass():
                 try:
-                    if self.security.hash_string(e_bp.get()) == self.db.get_config('btc_key'):
+                    hashed_input = self.security.hash_string(e_bp.get())
+                    stored_key = self.db.get_config('btc_key')
+                    
+                    if hashed_input == stored_key:
                         self.db.set_config('lock_until', '0')
                         self.db.set_config('failed_attempts', '0')
                         messagebox.showinfo("Access", "Protocol Accepted.")
@@ -495,56 +551,86 @@ class NexusApp:
                 except Exception:
                     messagebox.showerror("Error", "Validation Error")
                     
-            ttk.Button(frame, text="UNLOCK", command=bypass).pack(pady=10, fill="x")
+            bypass_btn = ttk.Button(frame, text="UNLOCK", command=bypass)
+            bypass_btn.pack(pady=10, fill="x")
             return
         
-        ttk.Label(frame, text="LOGIN", style="Header.TLabel").pack(pady=20)
-        ttk.Label(frame, text="Username:").pack(anchor="w")
+        # NORMAL LOGIN MODE
+        login_label = ttk.Label(frame, text="LOGIN", style="Header.TLabel")
+        login_label.pack(pady=20)
+        
+        user_label = ttk.Label(frame, text="Username:")
+        user_label.pack(anchor="w")
+        
         u_e = ttk.Entry(frame, width=30)
         u_e.pack(pady=5)
-        ttk.Label(frame, text="Password:").pack(anchor="w")
+        
+        pass_label = ttk.Label(frame, text="Password:")
+        pass_label.pack(anchor="w")
+        
         p_e = ttk.Entry(frame, width=30, show="*")
         p_e.pack(pady=5)
         
-        def login(e=None):
+        def login(event=None):
             try:
-                if u_e.get() == self.db.get_config('master_user') and self.security.hash_string(p_e.get()) == self.db.get_config('master_pass'):
+                username_input = u_e.get()
+                password_input = self.security.hash_string(p_e.get())
+                
+                stored_user = self.db.get_config('master_user')
+                stored_pass = self.db.get_config('master_pass')
+                
+                if username_input == stored_user and password_input == stored_pass:
                     self.db.set_config('failed_attempts', '0')
                     self.build_main_interface()
                 else:
-                    f = int(self.db.get_config('failed_attempts') or 0) + 1
-                    self.db.set_config('failed_attempts', str(f))
-                    if f >= 3:
-                        self.db.set_config('lock_until', str(time.time() + 3600))
+                    failed_attempts = int(self.db.get_config('failed_attempts') or 0) + 1
+                    self.db.set_config('failed_attempts', str(failed_attempts))
+                    
+                    if failed_attempts >= 3:
+                        lock_time = str(time.time() + 3600)
+                        self.db.set_config('lock_until', lock_time)
                         self.show_login_screen(locked=True)
                     else:
-                        messagebox.showerror("Error", f"Failed {f}/3")
+                        messagebox.showerror("Error", f"Failed Attempt {failed_attempts} out of 3")
             except Exception:
                 messagebox.showerror("Error", "Login Process Error")
         
         self.root.bind('<Return>', login)
-        ttk.Button(frame, text="ENTER", command=login).pack(pady=10, fill="x")
-        ttk.Button(frame, text="Forgot Password?", command=self.forgot_password_logic).pack(pady=5)
+        
+        enter_btn = ttk.Button(frame, text="ENTER", command=login)
+        enter_btn.pack(pady=10, fill="x")
+        
+        forgot_btn = ttk.Button(frame, text="Forgot Password?", command=self.forgot_password_logic)
+        forgot_btn.pack(pady=5)
 
     def forgot_password_logic(self):
         try:
             q1 = self.db.get_config('sec_q1') or "Q1"
             q2 = self.db.get_config('sec_q2') or "Q2"
+            
             a1 = simpledialog.askstring("Recovery", q1)
             a2 = simpledialog.askstring("Recovery", q2)
             
             if not a1 or not a2:
                 return
                 
-            if self.security.hash_string(a1) == self.db.get_config('sec_a1') and self.security.hash_string(a2) == self.db.get_config('sec_a2'):
-                np = simpledialog.askstring("Reset", "New Password:", show="*")
-                if np:
-                    self.db.set_config('master_pass', self.security.hash_string(np))
+            hashed_a1 = self.security.hash_string(a1)
+            hashed_a2 = self.security.hash_string(a2)
+            
+            stored_a1 = self.db.get_config('sec_a1')
+            stored_a2 = self.db.get_config('sec_a2')
+            
+            if hashed_a1 == stored_a1 and hashed_a2 == stored_a2:
+                new_pass = simpledialog.askstring("Reset", "New Password:", show="*")
+                
+                if new_pass:
+                    self.db.set_config('master_pass', self.security.hash_string(new_pass))
                     self.db.set_config('failed_attempts', '0')
-                    messagebox.showinfo("Success", "Updated.")
+                    messagebox.showinfo("Success", "Password successfully updated.")
             else:
-                self.db.set_config('lock_until', str(time.time() + 7200))
-                messagebox.showerror("ALERT", "Recovery Failed. Locked 2 Hours.")
+                lock_time = str(time.time() + 7200)
+                self.db.set_config('lock_until', lock_time)
+                messagebox.showerror("ALERT", "Recovery Failed. System locked for 2 Hours.")
                 self.show_login_screen(locked=True)
         except Exception:
             pass
@@ -556,10 +642,14 @@ class NexusApp:
         self.clear_screen()
         self.root.unbind('<Return>')
         
-        top = ttk.Frame(self.root)
-        top.pack(fill="x", padx=10, pady=5)
-        ttk.Label(top, text="NEXUS MANAGER", style="Header.TLabel").pack(side="left")
-        ttk.Button(top, text="⚙️ SETTINGS", command=self.open_settings).pack(side="right")
+        top_frame = ttk.Frame(self.root)
+        top_frame.pack(fill="x", padx=10, pady=5)
+        
+        title_lbl = ttk.Label(top_frame, text="NEXUS MANAGER", style="Header.TLabel")
+        title_lbl.pack(side="left")
+        
+        settings_btn = ttk.Button(top_frame, text="⚙️ SETTINGS", command=self.open_settings)
+        settings_btn.pack(side="right")
         
         self.tabs = ttk.Notebook(self.root)
         self.tabs.pack(expand=1, fill="both", padx=10, pady=5)
@@ -573,20 +663,19 @@ class NexusApp:
         self.build_email_tab()
 
     # ------------------------------------
-    # SETTINGS
+    # SETTINGS WITH SCROLL
     # ------------------------------------
     def open_settings(self):
         win = tk.Toplevel(self.root)
         win.title("Settings")
         
-        # [USER CONFIG] CHANGE SETTINGS WINDOW SIZE HERE (Width x Height)
-        win.geometry("500x500")
+        win.geometry("500x500") 
         
-        bg = self.root.cget("bg")
-        win.configure(bg=bg)
+        bg_color = self.root.cget("bg")
+        win.configure(bg=bg_color)
         
         try:
-            canvas = tk.Canvas(win, bg=bg, highlightthickness=0)
+            canvas = tk.Canvas(win, bg=bg_color, highlightthickness=0)
             scrollbar = ttk.Scrollbar(win, orient="vertical", command=canvas.yview)
             frame = ttk.Frame(canvas)
             
@@ -597,8 +686,12 @@ class NexusApp:
             scrollbar.pack(side="right", fill="y")
             canvas.pack(side="left", fill="both", expand=True)
 
-            ttk.Label(frame, text="Appearance", style="Header.TLabel").pack(anchor="w", padx=20, pady=(20,5))
-            ttk.Label(frame, text="Theme:").pack(anchor="w", padx=20)
+            app_lbl = ttk.Label(frame, text="Appearance", style="Header.TLabel")
+            app_lbl.pack(anchor="w", padx=20, pady=(20,5))
+            
+            theme_lbl = ttk.Label(frame, text="Theme:")
+            theme_lbl.pack(anchor="w", padx=20)
+            
             theme_var = tk.StringVar(value=self.db.get_config('theme'))
             theme_cb = ttk.Combobox(frame, textvariable=theme_var, values=["System", "Light", "Dark"], state="readonly")
             theme_cb.pack(fill="x", padx=20, pady=5)
@@ -608,38 +701,66 @@ class NexusApp:
                 new_bg = self.root.cget("bg")
                 win.configure(bg=new_bg)
                 canvas.configure(bg=new_bg)
+                
             theme_cb.bind("<<ComboboxSelected>>", preview_theme)
 
-            ttk.Label(frame, text="Behavior", style="Header.TLabel").pack(anchor="w", padx=20, pady=(20,5))
-            ttk.Label(frame, text="Auto-Lock Timeout:").pack(anchor="w", padx=20)
+            beh_lbl = ttk.Label(frame, text="Behavior", style="Header.TLabel")
+            beh_lbl.pack(anchor="w", padx=20, pady=(20,5))
+            
+            timeout_lbl = ttk.Label(frame, text="Auto-Lock Timeout:")
+            timeout_lbl.pack(anchor="w", padx=20)
+            
             to_var = tk.StringVar()
             cur_to = self.db.get_config('lock_timeout')
-            opts = {"0": "Always (On Close)", "1": "1 Minute", "5": "5 Minutes", "30": "30 Minutes", "-1": "Never"}
+            
+            opts = {
+                "0": "Always (On Close)", 
+                "1": "1 Minute", 
+                "5": "5 Minutes", 
+                "30": "30 Minutes", 
+                "-1": "Never"
+            }
             rev_opts = {v: k for k, v in opts.items()}
+            
             to_cb = ttk.Combobox(frame, textvariable=to_var, values=list(opts.values()), state="readonly")
             to_cb.pack(fill="x", padx=20, pady=5)
             to_cb.set(opts.get(cur_to, "Always (On Close)"))
 
-            ttk.Label(frame, text="Master Credentials", style="Header.TLabel").pack(anchor="w", padx=20, pady=(20,5))
-            ttk.Label(frame, text="New Master Password:").pack(anchor="w", padx=20)
+            cred_lbl = ttk.Label(frame, text="Master Credentials", style="Header.TLabel")
+            cred_lbl.pack(anchor="w", padx=20, pady=(20,5))
+            
+            new_pass_lbl = ttk.Label(frame, text="New Master Password:")
+            new_pass_lbl.pack(anchor="w", padx=20)
+            
             e_pass = ttk.Entry(frame, show="*")
             e_pass.pack(fill="x", padx=20, pady=5)
             
-            ttk.Label(frame, text="Security Questions", style="Header.TLabel").pack(anchor="w", padx=20, pady=(20,5))
+            sec_lbl = ttk.Label(frame, text="Security Questions", style="Header.TLabel")
+            sec_lbl.pack(anchor="w", padx=20, pady=(20,5))
             
-            ttk.Label(frame, text="Question 1:").pack(anchor="w", padx=20)
+            q1_lbl = ttk.Label(frame, text="Question 1:")
+            q1_lbl.pack(anchor="w", padx=20)
+            
             e_q1 = ttk.Entry(frame)
             e_q1.insert(0, self.db.get_config('sec_q1') or "")
             e_q1.pack(fill="x", padx=20, pady=2)
-            ttk.Label(frame, text="Answer 1:").pack(anchor="w", padx=20)
+            
+            a1_lbl = ttk.Label(frame, text="Answer 1:")
+            a1_lbl.pack(anchor="w", padx=20)
+            
             e_a1 = ttk.Entry(frame)
             e_a1.pack(fill="x", padx=20, pady=2)
             
-            ttk.Label(frame, text="Question 2:").pack(anchor="w", padx=20, pady=(5,0))
+            q2_lbl = ttk.Label(frame, text="Question 2:")
+            q2_lbl.pack(anchor="w", padx=20, pady=(5,0))
+            
             e_q2 = ttk.Entry(frame)
             e_q2.insert(0, self.db.get_config('sec_q2') or "")
             e_q2.pack(fill="x", padx=20, pady=2)
-            ttk.Label(frame, text="Answer 2:").pack(anchor="w", padx=20)
+            
+            a2_lbl = ttk.Label(frame, text="Answer 2:")
+            a2_lbl.pack(anchor="w", padx=20)
+            
             e_a2 = ttk.Entry(frame)
             e_a2.pack(fill="x", padx=20, pady=2)
 
@@ -647,14 +768,17 @@ class NexusApp:
                 try:
                     self.db.set_config('theme', theme_var.get())
                     self.apply_theme(theme_var.get())
+                    
                     self.db.set_config('lock_timeout', rev_opts.get(to_cb.get(), "0"))
                     
                     if e_pass.get():
                         self.db.set_config('master_pass', self.security.hash_string(e_pass.get()))
+                        
                     if e_q1.get():
                         self.db.set_config('sec_q1', e_q1.get())
                     if e_q2.get():
                         self.db.set_config('sec_q2', e_q2.get())
+                        
                     if e_a1.get():
                         self.db.set_config('sec_a1', self.security.hash_string(e_a1.get()))
                     if e_a2.get():
@@ -665,9 +789,10 @@ class NexusApp:
                 except Exception as e:
                     messagebox.showerror("Error", f"Failed to save settings: {e}")
                 
-            ttk.Button(frame, text="SAVE SETTINGS", command=save_all).pack(pady=30, padx=20, fill="x")
+            save_btn = ttk.Button(frame, text="SAVE SETTINGS", command=save_all)
+            save_btn.pack(pady=30, padx=20, fill="x")
 
-            branding = tk.Label(frame, text="Developed by rx76d", font=("Segoe UI", 7), fg="#1a1a1a", bg=bg)
+            branding = tk.Label(frame, text="Developed by rx76d", font=("Segoe UI", 7), fg="#1a1a1a", bg=bg_color)
             branding.pack(side="bottom", pady=(0, 20))
         except Exception:
             pass
@@ -679,36 +804,59 @@ class NexusApp:
         ctrl = ttk.Frame(self.tab_vault)
         ctrl.pack(fill="x", pady=10)
         
-        ttk.Button(ctrl, text="+ ADD NEW", command=lambda: self.open_account_modal(None)).pack(side="left", padx=5)
+        add_btn = ttk.Button(ctrl, text="+ ADD NEW", command=lambda: self.open_account_modal(None))
+        add_btn.pack(side="left", padx=5)
         
-        ttk.Label(ctrl, text="Search:").pack(side="left", padx=(15, 5))
+        search_lbl = ttk.Label(ctrl, text="Search:")
+        search_lbl.pack(side="left", padx=(15, 5))
+        
         self.search_var = tk.StringVar()
         self.search_var.trace("w", lambda n, i, m: self.refresh_vault())
-        ttk.Entry(ctrl, textvariable=self.search_var, width=20).pack(side="left")
+        search_entry = ttk.Entry(ctrl, textvariable=self.search_var, width=20)
+        search_entry.pack(side="left")
         
-        ttk.Label(ctrl, text="Identity:").pack(side="left", padx=(15, 5))
+        id_lbl = ttk.Label(ctrl, text="Identity:")
+        id_lbl.pack(side="left", padx=(15, 5))
+        
         self.filter_id_var = tk.StringVar(value="All")
         ids = ["All"] + [x[1] for x in self.db.get_identities()]
         cb_id = ttk.Combobox(ctrl, textvariable=self.filter_id_var, values=ids, state="readonly", width=12)
         cb_id.pack(side="left")
         cb_id.bind("<<ComboboxSelected>>", lambda e: self.refresh_vault())
         
-        ttk.Label(ctrl, text="Browser:").pack(side="left", padx=(15, 5))
+        br_lbl = ttk.Label(ctrl, text="Browser:")
+        br_lbl.pack(side="left", padx=(15, 5))
+        
         self.filter_br_var = tk.StringVar(value="All")
-        browsers = ["All", "Chrome", "Firefox", "Edge", "Opera", "Tor"]
+        browsers =["All", "Chrome", "Firefox", "Edge", "Opera", "Tor", "Brave", "Safari", "Other"]
         cb_br = ttk.Combobox(ctrl, textvariable=self.filter_br_var, values=browsers, state="readonly", width=12)
         cb_br.pack(side="left")
         cb_br.bind("<<ComboboxSelected>>", lambda e: self.refresh_vault())
 
         cols = ("ID", "Platform", "Email", "Identity", "Browser", "Username", "Auth")
         self.vault_tree = ttk.Treeview(self.tab_vault, columns=cols, show="headings")
-        self.vault_tree.heading("ID", text="ID"); self.vault_tree.column("ID", width=0, stretch=False)
-        self.vault_tree.heading("Platform", text="Platform"); self.vault_tree.column("Platform", width=140)
-        self.vault_tree.heading("Email", text="Linked Email"); self.vault_tree.column("Email", width=220)
-        self.vault_tree.heading("Identity", text="Identity"); self.vault_tree.column("Identity", width=100)
-        self.vault_tree.heading("Browser", text="Logged In"); self.vault_tree.column("Browser", width=140)
-        self.vault_tree.heading("Username", text="Username"); self.vault_tree.column("Username", width=140)
-        self.vault_tree.heading("Auth", text="Auth Method"); self.vault_tree.column("Auth", width=100)
+        
+        self.vault_tree.heading("ID", text="ID")
+        self.vault_tree.column("ID", width=0, stretch=False)
+        
+        self.vault_tree.heading("Platform", text="Platform")
+        self.vault_tree.column("Platform", width=140)
+        
+        self.vault_tree.heading("Email", text="Linked Email")
+        self.vault_tree.column("Email", width=220)
+        
+        self.vault_tree.heading("Identity", text="Identity")
+        self.vault_tree.column("Identity", width=100)
+        
+        self.vault_tree.heading("Browser", text="Logged In")
+        self.vault_tree.column("Browser", width=140)
+        
+        self.vault_tree.heading("Username", text="Username")
+        self.vault_tree.column("Username", width=140)
+        
+        self.vault_tree.heading("Auth", text="Auth Method")
+        self.vault_tree.column("Auth", width=100)
+        
         self.vault_tree.pack(expand=True, fill="both")
         
         self.vault_tree.bind("<Button-3>", self.on_right_click)
@@ -724,8 +872,12 @@ class NexusApp:
 
         btn_frame = ttk.Frame(self.tab_vault)
         btn_frame.pack(fill="x", pady=10)
-        ttk.Button(btn_frame, text="🚀 LAUNCH SITE", command=self.launch_url).pack(side="left", padx=5)
-        ttk.Button(btn_frame, text="📋 COPY PASSWORD", command=self.copy_password).pack(side="left", padx=5)
+        
+        launch_btn = ttk.Button(btn_frame, text="🚀 LAUNCH SITE", command=self.launch_url)
+        launch_btn.pack(side="left", padx=5)
+        
+        copy_btn = ttk.Button(btn_frame, text="📋 COPY PASSWORD", command=self.copy_password)
+        copy_btn.pack(side="left", padx=5)
         
         self.refresh_vault()
 
@@ -740,9 +892,12 @@ class NexusApp:
         
     def edit_selected(self):
         sel = self.vault_tree.selection()
-        if not sel: return
+        if not sel:
+            return
+            
         row_id = self.vault_tree.item(sel[0])['values'][0]
         full_data = self.db.get_vault_data()
+        
         target_row = next((r for r in full_data if r[0] == row_id), None)
         if target_row: 
             self.open_account_modal(target_row)
@@ -753,22 +908,26 @@ class NexusApp:
     def open_account_modal(self, existing_data=None):
         is_edit = existing_data is not None
         emails = self.db.get_emails()
+        
         if not emails:
             messagebox.showerror("No Emails", "Please add an email first.")
             return
 
         win = tk.Toplevel(self.root)
-        win.title("Edit Account" if is_edit else "Add New Account")
         
-        # [USER CONFIG] CHANGE ADD ACCOUNT WINDOW SIZE HERE (Width x Height)
+        if is_edit:
+            win.title("Edit Account")
+        else:
+            win.title("Add New Account")
+
         win.geometry("450x580")
         
         self.apply_theme() 
-        bg = self.root.cget("bg")
-        win.configure(bg=bg)
+        bg_color = self.root.cget("bg")
+        win.configure(bg=bg_color)
 
         try:
-            canvas = tk.Canvas(win, bg=bg, highlightthickness=0)
+            canvas = tk.Canvas(win, bg=bg_color, highlightthickness=0)
             scrollbar = ttk.Scrollbar(win, orient="vertical", command=canvas.yview)
             frame = ttk.Frame(canvas)
             
@@ -779,27 +938,31 @@ class NexusApp:
             scrollbar.pack(side="right", fill="y")
             canvas.pack(side="left", fill="both", expand=True)
 
-            def lbl(t):
-                ttk.Label(frame, text=t).pack(anchor="w", padx=20, pady=(10,0))
+            def create_label(t):
+                lbl = ttk.Label(frame, text=t)
+                lbl.pack(anchor="w", padx=20, pady=(10,0))
                 
-            def entry():
+            def create_entry():
                 e = ttk.Entry(frame, width=45)
                 e.pack(padx=20, pady=2)
                 return e
 
-            lbl("Platform Name:")
-            e_plat = entry()
-            if is_edit: e_plat.insert(0, existing_data[1])
+            create_label("Platform Name:")
+            e_plat = create_entry()
+            if is_edit:
+                e_plat.insert(0, existing_data[1])
 
-            lbl("Login URL:")
-            e_url = entry()
-            if is_edit: e_url.insert(0, existing_data[7])
+            create_label("Login URL:")
+            e_url = create_entry()
+            if is_edit:
+                e_url.insert(0, existing_data[7])
 
-            lbl("Username (Optional):")
-            e_user = entry()
-            if is_edit: e_user.insert(0, existing_data[5])
+            create_label("Username (Optional):")
+            e_user = create_entry()
+            if is_edit:
+                e_user.insert(0, existing_data[5])
 
-            lbl("Linked Email:")
+            create_label("Linked Email:")
             email_map = {e[1]: e[0] for e in emails}
             sv_email = tk.StringVar()
             cb_em = ttk.Combobox(frame, textvariable=sv_email, values=list(email_map.keys()), state="readonly", width=42)
@@ -809,46 +972,60 @@ class NexusApp:
             elif emails:
                 cb_em.current(0)
             
-            lbl("Auth Method:")
+            create_label("Auth Method:")
             sv_auth = tk.StringVar(value="Password")
-            cb_auth = ttk.Combobox(frame, textvariable=sv_auth, values=["Password", "Google OAuth", "Apple ID", "Magic Link", "SSO", "Other"], state="readonly", width=42)
+            auth_options =["Password", "Google OAuth", "Apple ID", "Magic Link", "SSO", "Other"]
+            cb_auth = ttk.Combobox(frame, textvariable=sv_auth, values=auth_options, state="readonly", width=42)
             cb_auth.pack(padx=20, pady=2)
             if is_edit and existing_data[12]:
                 sv_auth.set(existing_data[12])
 
-            lbl("Logged In Browsers:")
+            create_label("Logged In Browsers:")
             browser_cont = ttk.Frame(frame)
             browser_cont.pack(fill="x", padx=20, pady=2)
             browser_combos = []
+            
+            browser_options =["Chrome", "Firefox", "Edge", "Opera", "Tor", "Brave", "Safari", "Other"]
 
             def add_br(val=None, btn=None):
-                if btn: btn.destroy()
+                if btn:
+                    btn.destroy()
+                    
                 r = ttk.Frame(browser_cont)
                 r.pack(fill="x", pady=2)
-                cb = ttk.Combobox(r, values=["Chrome", "Firefox", "Edge", "Opera", "Tor", "Brave"], state="readonly", width=30)
+                
+                cb = ttk.Combobox(r, values=browser_options, state="readonly", width=30)
                 cb.pack(side="left")
-                if val: cb.set(val)
-                else: cb.current(0)
+                
+                if val:
+                    cb.set(val)
+                else:
+                    cb.current(0)
+                    
                 browser_combos.append(cb)
+                
                 b = ttk.Button(r, text="+", width=3, command=lambda: add_br(None, b))
                 b.pack(side="left", padx=5)
 
             if is_edit and existing_data[4]:
                 br_list = existing_data[4].split(',')
-                for i, b in enumerate(br_list):
+                for i, b_val in enumerate(br_list):
                     r = ttk.Frame(browser_cont)
                     r.pack(fill="x", pady=2)
-                    cb = ttk.Combobox(r, values=["Chrome", "Firefox", "Edge", "Opera", "Tor", "Brave"], state="readonly", width=30)
+                    
+                    cb = ttk.Combobox(r, values=browser_options, state="readonly", width=30)
                     cb.pack(side="left")
-                    cb.set(b.strip())
+                    cb.set(b_val.strip())
+                    
                     browser_combos.append(cb)
+                    
                     if i == len(br_list)-1:
                         b = ttk.Button(r, text="+", width=3, command=lambda: add_br(None, b))
                         b.pack(side="left", padx=5)
             else:
                 add_br("Chrome")
 
-            lbl("Password:")
+            create_label("Password:")
             e_pass = ttk.Entry(frame, width=45, show="*")
             e_pass.pack(padx=20, pady=2)
             
@@ -857,23 +1034,37 @@ class NexusApp:
                 pwd = ''.join(random.choice(chars) for i in range(16))
                 e_pass.delete(0, tk.END)
                 e_pass.insert(0, pwd)
-            ttk.Button(frame, text="Generate Random Password", command=gen_pass).pack(pady=2)
+                
+            gen_btn = ttk.Button(frame, text="Generate Random Password", command=gen_pass)
+            gen_btn.pack(pady=2)
 
-            lbl("Notes:")
-            e_notes = entry()
-            if is_edit: e_notes.insert(0, existing_data[11])
+            create_label("Notes:")
+            e_notes = create_entry()
+            if is_edit:
+                e_notes.insert(0, existing_data[11])
 
             def save():
                 if not e_plat.get() or not sv_email.get():
                     messagebox.showerror("Error", "Required fields missing.")
                     return
                 
-                sel_br = [c.get() for c in browser_combos if c.get()]
-                br_str = ", ".join(list(set(sel_br)))
-                raw = e_pass.get()
-                enc = self.security.encrypt(raw) if raw else None
+                selected_browsers =[]
+                for combo in browser_combos:
+                    val = combo.get()
+                    if val:
+                        selected_browsers.append(val)
+                        
+                unique_browsers = list(set(selected_browsers))
+                br_str = ", ".join(unique_browsers)
                 
-                if not is_edit and not raw and sv_auth.get() == "Password":
+                raw_password = e_pass.get()
+                
+                if raw_password:
+                    enc = self.security.encrypt(raw_password)
+                else:
+                    enc = None
+                
+                if not is_edit and not raw_password and sv_auth.get() == "Password":
                     messagebox.showerror("Error", "Password required.")
                     return
                 
@@ -894,58 +1085,121 @@ class NexusApp:
                 except Exception as e:
                     messagebox.showerror("Error", f"Failed to save: {e}")
 
-            ttk.Button(frame, text="SAVE ENTRY", command=save).pack(pady=15, fill="x", padx=20)
+            save_btn = ttk.Button(frame, text="SAVE ENTRY", command=save)
+            save_btn.pack(pady=15, fill="x", padx=20)
         except Exception:
             pass
 
     def refresh_vault(self):
-        for i in self.vault_tree.get_children():
-            self.vault_tree.delete(i)
+        try:
+            for i in self.vault_tree.get_children():
+                self.vault_tree.delete(i)
+                
+            data = self.db.get_vault_data(self.search_var.get(), self.filter_id_var.get(), self.filter_br_var.get())
             
-        data = self.db.get_vault_data(self.search_var.get(), self.filter_id_var.get(), self.filter_br_var.get())
-        
-        for row in data:
-            status = row[9]
-            tags = ()
-            if status == "Deprecated": tags = ('deprecated',)
-            elif status == "Dormant": tags = ('dormant',)
-            self.vault_tree.insert("", "end", values=(row[0], row[1], row[2], row[3], row[4], row[5], row[12]), tags=tags)
-            
-        self.vault_tree.tag_configure('deprecated', foreground='gray')
-        self.vault_tree.tag_configure('dormant', foreground='#d35400')
+            for row in data:
+                status = row[9]
+                tags = ()
+                
+                if status == "Deprecated":
+                    tags = ('deprecated',)
+                elif status == "Dormant":
+                    tags = ('dormant',)
+                    
+                self.vault_tree.insert("", "end", values=(row[0], row[1], row[2], row[3], row[4], row[5], row[12]), tags=tags)
+                
+            self.vault_tree.tag_configure('deprecated', foreground='gray')
+            self.vault_tree.tag_configure('dormant', foreground='#d35400')
+        except Exception:
+            pass
 
     def get_selected_row(self):
-        sel = self.vault_tree.selection()
-        if not sel: return None
-        rid = self.vault_tree.item(sel[0])['values'][0]
-        data = self.db.get_vault_data()
-        for r in data:
-            if r[0] == rid: return r
-        return None
+        try:
+            sel = self.vault_tree.selection()
+            if not sel:
+                return None
+                
+            rid = self.vault_tree.item(sel[0])['values'][0]
+            data = self.db.get_vault_data()
+            
+            for r in data:
+                if r[0] == rid:
+                    return r
+            return None
+        except Exception:
+            return None
 
     def launch_url(self):
         r = self.get_selected_row()
         if not r:
             messagebox.showinfo("Select", "Select a row first.")
             return
-        if not r[7]: return
+            
+        url = r[7]
+        if not url:
+            return
+            
         br = r[4].lower()
+        
         try:
-            if "chrome" in br and sys.platform == 'win32': os.system(f"start chrome {r[7]}")
-            elif "firefox" in br and sys.platform == 'win32': os.system(f"start firefox {r[7]}")
-            elif "edge" in br and sys.platform == 'win32': os.system(f"start msedge {r[7]}")
-            else: webbrowser.open(r[7])
-        except:
-            webbrowser.open(r[7])
+            if "other" in br or not br:
+                webbrowser.open(url)
+                return
+
+            if sys.platform == 'win32':
+                if "chrome" in br:
+                    os.system(f"start chrome {url}")
+                elif "firefox" in br:
+                    os.system(f"start firefox {url}")
+                elif "edge" in br:
+                    os.system(f"start msedge {url}")
+                elif "opera" in br:
+                    os.system(f"start opera {url}")
+                elif "brave" in br:
+                    os.system(f"start brave {url}")
+                else:
+                    webbrowser.open(url)
+            elif sys.platform == 'darwin':
+                if "chrome" in br:
+                    os.system(f"open -a 'Google Chrome' {url}")
+                elif "firefox" in br:
+                    os.system(f"open -a 'Firefox' {url}")
+                elif "edge" in br:
+                    os.system(f"open -a 'Microsoft Edge' {url}")
+                elif "safari" in br:
+                    os.system(f"open -a 'Safari' {url}")
+                elif "opera" in br:
+                    os.system(f"open -a 'Opera' {url}")
+                elif "brave" in br:
+                    os.system(f"open -a 'Brave Browser' {url}")
+                else:
+                    webbrowser.open(url)
+            else:
+                if "chrome" in br:
+                    os.system(f"google-chrome {url} || chromium-browser {url} || xdg-open {url}")
+                elif "firefox" in br:
+                    os.system(f"firefox {url} || xdg-open {url}")
+                elif "edge" in br:
+                    os.system(f"microsoft-edge {url} || xdg-open {url}")
+                elif "opera" in br:
+                    os.system(f"opera {url} || xdg-open {url}")
+                elif "brave" in br:
+                    os.system(f"brave-browser {url} || xdg-open {url}")
+                else:
+                    webbrowser.open(url)
+        except Exception:
+            webbrowser.open(url)
 
     def copy_password(self):
         r = self.get_selected_row()
         if not r:
             messagebox.showinfo("Select", "Select a row first.")
             return
+            
         if not r[6]:
             messagebox.showinfo("Info", "No password stored.")
             return
+            
         try:
             self.root.clipboard_clear()
             self.root.clipboard_append(self.security.decrypt(r[6]))
@@ -954,61 +1208,90 @@ class NexusApp:
             messagebox.showerror("Error", "Clipboard access failed")
 
     def delete_entry(self):
-        sel = self.vault_tree.selection()
-        if not sel: return
-        if messagebox.askyesno("Confirm", "Delete this account?"):
-            self.db.delete_account(self.vault_tree.item(sel[0])['values'][0])
-            self.refresh_vault()
+        try:
+            sel = self.vault_tree.selection()
+            if not sel:
+                return
+                
+            if messagebox.askyesno("Confirm", "Delete this account?"):
+                self.db.delete_account(self.vault_tree.item(sel[0])['values'][0])
+                self.refresh_vault()
+        except Exception:
+            pass
 
     def build_email_tab(self):
         f = ttk.LabelFrame(self.tab_emails, text="Register New Email")
         f.pack(fill="x", padx=15, pady=15)
         
-        ttk.Label(f, text="Email:").pack(side="left", padx=(10,5), pady=10)
+        email_lbl = ttk.Label(f, text="Email:")
+        email_lbl.pack(side="left", padx=(10,5), pady=10)
+        
         self.em_addr = ttk.Entry(f, width=30)
         self.em_addr.pack(side="left", padx=5, pady=10)
         
-        ttk.Label(f, text="Zone:").pack(side="left", padx=(15,5), pady=10)
+        zone_lbl = ttk.Label(f, text="Zone:")
+        zone_lbl.pack(side="left", padx=(15,5), pady=10)
+        
         self.em_id_var = tk.StringVar()
         ids = [x[1] for x in self.db.get_identities()]
         cb = ttk.Combobox(f, textvariable=self.em_id_var, values=ids, state="readonly", width=12)
         cb.pack(side="left", padx=5, pady=10)
-        if ids: cb.current(0)
+        if ids:
+            cb.current(0)
         
-        ttk.Label(f, text="Status:").pack(side="left", padx=(15,5), pady=10)
+        stat_lbl = ttk.Label(f, text="Status:")
+        stat_lbl.pack(side="left", padx=(15,5), pady=10)
+        
         self.em_stat_var = tk.StringVar(value="Active")
         cb_st = ttk.Combobox(f, textvariable=self.em_stat_var, values=["Active", "Dormant", "Deprecated"], state="readonly", width=12)
         cb_st.pack(side="left", padx=5, pady=10)
         
-        ttk.Button(f, text="ADD", command=self.add_email, width=10).pack(side="left", padx=20, pady=10)
+        add_btn = ttk.Button(f, text="ADD", command=self.add_email, width=10)
+        add_btn.pack(side="left", padx=20, pady=10)
         
-        self.email_tree = ttk.Treeview(self.tab_emails, columns=("Addr", "Id", "Stat"), show="headings")
+        cols = ("Addr", "Id", "Stat")
+        self.email_tree = ttk.Treeview(self.tab_emails, columns=cols, show="headings")
+        
         self.email_tree.heading("Addr", text="Email Address")
         self.email_tree.heading("Id", text="Identity")
         self.email_tree.heading("Stat", text="Status")
+        
         self.email_tree.pack(expand=True, fill="both", padx=15, pady=10)
         self.refresh_emails()
 
     def add_email(self):
-        val = self.em_addr.get()
-        if "@" not in val:
-            messagebox.showerror("Error", "Invalid Email.")
-            return
-        id_name = self.em_id_var.get()
-        all_ids = self.db.get_identities()
-        rid = next((x[0] for x in all_ids if x[1] == id_name), 1)
-        
-        if self.db.add_email(val, rid, self.em_stat_var.get()):
-            self.em_addr.delete(0, tk.END)
-            self.refresh_emails()
-        else:
-            messagebox.showerror("Error", "Email exists.")
+        try:
+            val = self.em_addr.get()
+            if "@" not in val:
+                messagebox.showerror("Error", "Invalid Email.")
+                return
+                
+            id_name = self.em_id_var.get()
+            all_ids = self.db.get_identities()
+            
+            rid = 1
+            for x in all_ids:
+                if x[1] == id_name:
+                    rid = x[0]
+                    break
+            
+            if self.db.add_email(val, rid, self.em_stat_var.get()):
+                self.em_addr.delete(0, tk.END)
+                self.refresh_emails()
+            else:
+                messagebox.showerror("Error", "Email exists.")
+        except Exception:
+            pass
 
     def refresh_emails(self):
-        for i in self.email_tree.get_children():
-            self.email_tree.delete(i)
-        for r in self.db.get_emails():
-            self.email_tree.insert("", "end", values=(r[1], r[2], r[3]))
+        try:
+            for i in self.email_tree.get_children():
+                self.email_tree.delete(i)
+                
+            for r in self.db.get_emails():
+                self.email_tree.insert("", "end", values=(r[1], r[2], r[3]))
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     try:
