@@ -3,7 +3,7 @@
   <img src="icon.ico" align="right" width="80"/>
 </h1>
 
-![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)
+![Version](https://img.shields.io/badge/version-1.0.2-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 Nexus helps you manage your emails keep track of which email you’re using for which services and securely store your passwords locally.
