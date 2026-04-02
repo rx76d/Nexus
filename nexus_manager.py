@@ -349,14 +349,13 @@ class NexusApp:
 
             self.root.configure(bg=bg)
             self.style.configure("TFrame", background=bg)
-            self.style.configure("TLabel", background=bg, foreground=fg, font=("Segoe UI", 10))
-            self.style.configure("TButton", font=("Segoe UI", 10))
+            self.style.configure("TLabel", background=bg, foreground=fg, font="TkDefaultFont")
+            self.style.configure("TButton", font="TkDefaultFont")
             self.style.configure("TCombobox", fieldbackground=field_bg, background=bg, foreground=fg)
             self.style.configure("TEntry", fieldbackground=field_bg, foreground=fg)
-            self.style.configure("Header.TLabel", font=("Segoe UI", 12, "bold"), foreground=header_fg, background=bg)
-            
-            self.style.configure("Treeview", background=field_bg, foreground=fg, fieldbackground=field_bg, font=("Segoe UI", 10), rowheight=30)
-            self.style.configure("Treeview.Heading", font=("Segoe UI", 10, "bold"))
+            self.style.configure("Header.TLabel", font="TkDefaultFont", foreground=header_fg, background=bg)
+            self.style.configure("Treeview", background=field_bg, foreground=fg, fieldbackground=field_bg, font="TkDefaultFont", rowheight=30)
+            self.style.configure("Treeview.Heading", font="TkDefaultFont")
             self.style.map("Treeview", background=[("selected", select_bg)])
 
             for widget in self.root.winfo_children():
@@ -433,7 +432,7 @@ class NexusApp:
         btc_label = ttk.Label(frame, text="Emergency Key:")
         btc_label.pack(anchor="w", pady=(15,0))
         
-        btc_warning = ttk.Label(frame, text="⚠ CANNOT BE CHANGED LATER", font=("Segoe UI", 8), foreground="red")
+        btc_warning = ttk.Label(frame, text="⚠ CANNOT BE CHANGED LATER", font="TkDefaultFont", foreground="red")
         btc_warning.pack(anchor="w")
 
         btc_entry = ttk.Entry(frame, width=35)
@@ -505,10 +504,10 @@ class NexusApp:
         if locked:
             lock_until = float(self.db.get_config('lock_until') or 0)
             
-            lock_label = ttk.Label(frame, text="SECURITY LOCKDOWN", font=("Segoe UI", 24, "bold"), foreground="red")
+            lock_label = ttk.Label(frame, text="SECURITY LOCKDOWN", font="TkDefaultFont", foreground="red")
             lock_label.pack(pady=20)
             
-            cd_lbl = ttk.Label(frame, text="", font=("Courier New", 14))
+            cd_lbl = ttk.Label(frame, text="", font="TkDefaultFont")
             cd_lbl.pack(pady=10)
             
             def update_timer():
@@ -669,7 +668,7 @@ class NexusApp:
         win = tk.Toplevel(self.root)
         win.title("Settings")
         
-        win.geometry("500x500") 
+        win.geometry("500x500")
         
         bg_color = self.root.cget("bg")
         win.configure(bg=bg_color)
@@ -792,7 +791,7 @@ class NexusApp:
             save_btn = ttk.Button(frame, text="SAVE SETTINGS", command=save_all)
             save_btn.pack(pady=30, padx=20, fill="x")
 
-            branding = tk.Label(frame, text="Developed by rx76d", font=("Segoe UI", 7), fg="#1a1a1a", bg=bg_color)
+            branding = tk.Label(frame, text="Developed by rx76d", font="TkDefaultFont", fg="#1a1a1a", bg=bg_color)
             branding.pack(side="bottom", pady=(0, 20))
         except Exception:
             pass
@@ -860,6 +859,8 @@ class NexusApp:
         self.vault_tree.pack(expand=True, fill="both")
         
         self.vault_tree.bind("<Button-3>", self.on_right_click)
+        self.vault_tree.bind("<Button-2>", self.on_right_click)
+        self.vault_tree.bind("<Control-Button-1>", self.on_right_click)
         self.vault_tree.bind("<Double-1>", self.on_double_click)
 
         self.context_menu = Menu(self.root, tearoff=0)
@@ -895,10 +896,10 @@ class NexusApp:
         if not sel:
             return
             
-        row_id = self.vault_tree.item(sel[0])['values'][0]
+        row_id = str(self.vault_tree.item(sel[0])['values'][0])
         full_data = self.db.get_vault_data()
         
-        target_row = next((r for r in full_data if r[0] == row_id), None)
+        target_row = next((r for r in full_data if str(r[0]) == row_id), None)
         if target_row: 
             self.open_account_modal(target_row)
 
@@ -1117,13 +1118,17 @@ class NexusApp:
         try:
             sel = self.vault_tree.selection()
             if not sel:
-                return None
+                focus_iid = self.vault_tree.focus()
+                if focus_iid:
+                    sel = (focus_iid,)
+                else:
+                    return None
                 
-            rid = self.vault_tree.item(sel[0])['values'][0]
+            rid = str(self.vault_tree.item(sel[0])['values'][0])
             data = self.db.get_vault_data()
             
             for r in data:
-                if r[0] == rid:
+                if str(r[0]) == rid:
                     return r
             return None
         except Exception:
@@ -1293,7 +1298,20 @@ class NexusApp:
         except Exception:
             pass
 
+def _has_gui_display():
+    if sys.platform == "win32":
+        return True
+    return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+
+
 if __name__ == "__main__":
+    if not _has_gui_display():
+        sys.stderr.write(
+            "No GUI display detected. This app requires an X11/Wayland display on Linux/macOS.\n"
+            "Set DISPLAY/WAYLAND_DISPLAY (e.g. run with X11 forwarding), or use Xvfb.\n"
+        )
+        sys.exit(1)
+
     try:
         root = tk.Tk()
         app = NexusApp(root)
